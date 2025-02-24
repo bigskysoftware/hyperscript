@@ -7454,6 +7454,57 @@
             }
         });
 
+        parser.addCommand("clear", function (parser, runtime, tokens) {
+            if (tokens.matchToken("clear")) {
+                var classRef = parser.parseElement("classRef", tokens);
+                var elementExpr = null;
+                if (classRef != null) {
+                    var classRefs = [classRef];
+                    while ((classRef = parser.parseElement("classRef", tokens))) {
+                        classRefs.push(classRef);
+                    }
+                }
+
+                if (tokens.matchToken("in")) {
+                    var inExpr = parser.requireElement("expression", tokens);
+                } else {
+                    elementExpr = parser.parseElement("expression", tokens);
+                    if (elementExpr == null) {
+                        var inExpr = parser.requireElement("implicitMeTarget", tokens);
+                    }
+                }
+
+                return {
+                    elementExpr: elementExpr,
+                    in: inExpr,
+                    args: [elementExpr, inExpr],
+                    op: function (context, element, inside) {
+                        runtime.nullCheck(element, elementExpr);
+                        runtime.implicitLoop(element, function (target) {
+                            if (Array.isArray(target)) {
+                                target.length = 0;
+                            } else if (Object.hasOwn(target, "clear")) {
+                                target.clear();
+                            } else if (target.value != null) {
+                                target.value = "";
+                            } else {
+                                if (target === element) {
+                                    target.replaceChildren();
+                                } else if (target.parentElement) {
+                                    if (inside == null && target.parentElement === element.relativeToElement) {
+                                        target.replaceChildren();
+                                    } else if (inside != null && inside.contains(target)) {
+                                        target.replaceChildren();
+                                    }
+                                }
+                            }
+                        });
+                        return runtime.findNext(this, context);
+                    },
+                };
+            }
+        });
+
         config.conversions.dynamicResolvers.push(function (str, node) {
             if (!(str === "Values" || str.indexOf("Values:") === 0)) {
                 return;
